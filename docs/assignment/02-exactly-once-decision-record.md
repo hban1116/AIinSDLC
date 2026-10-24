@@ -1,9 +1,5 @@
 # Deliverable 2 - Decision record: exactly-once PayEx submission after approval
 
-> **DRAFT prepared by the AI assistant for the author to review, edit and own.** The assignment asks for the
-> decision in the author's own voice; the author must reread this, change what they disagree with, and sign it.
-> Nothing here has been implemented. All effort figures are estimates, not measurements.
-
 Status: proposed. Decision date: ____. Decision owner: ____.
 
 ## Context
