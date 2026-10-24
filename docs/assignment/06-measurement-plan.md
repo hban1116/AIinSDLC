@@ -3,6 +3,14 @@
 Three metrics are in scope: lead time, change failure rate, review turnaround. Two numbers are actually captured
 below; they are **proxies** and are labelled as such. Nothing here is a measurement of production.
 
+## Real repository/CI-history numbers: not supported by evidence
+
+The assignment asks for two real numbers from repository/CI history. **None can be reported honestly**: the repository
+has no merged PRs and no Actions runs (counts above), so there is no real lead time, review turnaround, CI duration or
+failure rate. The two figures below come from the provided, invented workshop CSV and are proxies only. To close the
+gap, open PRs through the submission repo, let `.github/workflows/ci.yml` run for a few weeks, then rerun the queries
+in the plan section.
+
 ## What I could capture now
 
 Command: `python3 scripts/ci_metrics.py` (reads `ops/pipeline/run-timings.csv`, 20 runs, 2026-01-19 to 2026-02-02).
@@ -19,7 +27,9 @@ Honest limits:
 - A failed CI run is not a change failure. Change failure rate (DORA) counts changes that reach production and
   then need a fix, rollback or hotfix. There is no production, so this is a different quantity.
 - 20 runs over two weeks, no confidence interval worth quoting; 2 failures is too few to see a trend.
-- Real git history has 6 commits (5 on 2026-10-05, 1 on 2026-10-12), no PRs, no deploys. Lead time and review
+- Real history checked 2026-10-24: `git log` shows 9 commits (5 on 2026-10-05, 1 on 2026-10-12, 3 on 2026-10-24 by the
+  submission author); `gh api repos/hban1116/AIinSDLC/pulls?state=all` returned 0 pull requests and
+  `gh api repos/hban1116/AIinSDLC/actions/runs` returned `total_count` 0, i.e. no GitHub Actions runs and no deploys. Lead time and review
   turnaround cannot be computed from it. I did not compute commit-gap "lead time" because it would be meaningless.
 
 ## Plan for the real baselines
@@ -31,8 +41,8 @@ Honest limits:
 | Review turnaround | PR marked ready for review to first human review | GitHub PR timeline | `gh api repos/{owner}/{repo}/pulls/{n}/reviews` first non-author `submitted_at` minus the `ready_for_review` event time from `/issues/{n}/timeline`. Exclude agent reviews so the AI reviewer does not flatter the number. |
 
 Prerequisites: a PR-based workflow on the submission repo with at least a few weeks of merged PRs, a deploy
-workflow or release tag to anchor "deployed", and an incident-to-SHA record. None of these exist today (and no
-`gh` CLI is installed in this environment; the GitHub MCP tools could be used instead with the owner's access).
+workflow or release tag to anchor "deployed", and an incident-to-SHA record. None of these exist today. (The `gh` CLI is installed and
+authenticated here, as the history checks above show; an earlier draft wrongly said it was not installed.)
 
 ## Using the numbers to judge the AI changes
 

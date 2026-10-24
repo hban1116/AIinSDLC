@@ -1,8 +1,10 @@
 # Deliverable 1 - As-built and target architecture
 
-Tooling note: the assignment asks for the Mermaid MCP. No Mermaid MCP server was available in this
-environment (`.mcp.json` only configures Playwright). The Mermaid below was written by hand by the AI assistant
-from reading the source, so it is *not* tool-generated. See `07-ai-augmentation-log.md`.
+Tooling note: all three diagrams below were submitted as Mermaid source to the Mermaid Chart MCP tool
+`validate_and_render_mermaid_diagram` (`clientName: "copilot-cli"`, `useUrlShortener: false`) on 2026-10-24. The
+Mermaid source was written by the AI assistant from reading the code; the MCP tool validated and rendered it.
+It did not derive the diagrams from the code. Outcomes are in "MCP validation evidence" below. The MCP
+credential is not stored in this repository and is not recorded here.
 
 Rule used: every box and arrow in the as-built diagrams cites a file and symbol (citation list in section 3).
 Anything the agent assumed rather than read is in section 4 and is not presented as fact.
@@ -36,6 +38,7 @@ flowchart LR
     mw --> ctrl
     ctrl --> role
     ctrl -->|"AuthController.Login reads Users  (E4)"| cfg
+    ctrl -->|"Login: Create, Logout: Remove  (E9)"| sess
     ctrl -->|"Approve / Reject / Submit  (E5)"| svc
     ctrl -->|"InvoicesController: GetAll, GetById, Add, Remove  (E6)"| irepo
     svc -->|"GetById / Update  (E7)"| irepo
@@ -50,44 +53,92 @@ notification worker, health endpoint, Dockerfile, audit log, HTTPS configuration
 
 ```mermaid
 sequenceDiagram
+    autonumber
     actor Approver
-    participant UI as Browser UI
-    participant MW as SessionAuthMiddleware
-    participant Filter as RequireRoleAttribute
-    participant Ctl as ApprovalsController
-    participant Svc as ApprovalService
-    participant Repo as InMemoryInvoiceRepository
+    participant UI as Browser UI app.js (S1)
+    participant MW as SessionAuthMiddleware (S2)
+    participant Filter as RequireRoleAttribute (S3)
+    participant Ctl as ApprovalsController (S4)
+    participant Base as ApiControllerBase.Handle (S5)
+    participant Svc as ApprovalService (S6)
+    participant Repo as InMemoryInvoiceRepository (S7)
 
-    Approver->>UI: Click Approve
-    UI->>MW: Submit approval request
-    MW->>MW: Validate session token
-    alt Invalid session
-        MW-->>UI: 401 Unauthorized
-    else Valid session
-        MW->>Filter: Continue request
-        Filter->>Filter: Check Approver or Admin role
-        alt Role denied
-            Filter-->>UI: 403 Forbidden
-        else Role allowed
-            Filter->>Ctl: Invoke approve action
-            Ctl->>Svc: Approve invoice
-            Svc->>Repo: Get invoice
-            Repo-->>Svc: Invoice or null
-            alt Invoice not found
-                Svc-->>Ctl: Not found
-                Ctl-->>UI: 404 Not Found
-            else Invoice found
-                Svc->>Svc: Validate invoice status
-                Svc->>Repo: Update approved invoice
-                Repo-->>Svc: Update complete
-                Svc-->>UI: Approval response
+    Approver->>UI: click Approve
+    UI->>MW: POST /api/approvals/{invoiceId}/approve, Authorization Bearer token
+    MW->>MW: SessionStore.Get(token), token null if header lacks Bearer prefix
+    alt no valid session
+        MW-->>UI: 401, empty body, pipeline stops
+    else valid session
+        MW->>Filter: context.Items session = UserSession, then _next
+        Filter->>Filter: session.Role in Approver or Admin
+        alt role not allowed
+            Filter-->>UI: 403, action not run
+        else role allowed
+            Filter->>Ctl: Approve(invoiceId)
+            Ctl->>Base: Handle(() => _approvals.Approve(invoiceId, session.Username))
+            Base->>Svc: Approve(invoiceId, approver)
+            Svc->>Repo: GetById(invoiceId), under lock
+            Repo-->>Svc: Invoice reference or null
+            alt GetById returned null
+                Svc-->>Base: throws KeyNotFoundException
+                Base-->>UI: 404 { error }
+            else status is not PendingApproval
+                Svc-->>Base: EnsurePending throws InvalidOperationException
+                Base-->>UI: 409 { error }
+            else status is PendingApproval
+                Svc->>Svc: Status = Approved, DecidedBy, DecidedAt = UtcNow
+                Svc->>Repo: Update(invoice), under lock
+                Svc-->>Base: Invoice
+                Base-->>UI: 200 Invoice JSON
             end
         end
     end
+    Note over Svc,Repo: Nothing follows Update. No audit write, no notification, no payment call exists in the code.
 ```
 
-Nothing happens after `Update`: no audit write, no notification, no payment submission. That is the central
-gap the target state has to fill.
+Rendering notes: the sequence shows `Approve`; `Reject` (`ApprovalsController.Reject`) adds one more branch,
+a blank reason throws `ArgumentException` before `Find`, which `Handle` maps to 400. Exceptions of other types
+are not caught by `Handle` and are not handled elsewhere in `Program.cs`, so they surface as ASP.NET Core's
+default 500 (inferred item 7).
+
+### Verified implementation facts vs inferred items (for the two diagrams)
+
+Verified by reading the cited code (not by running requests):
+- Pipeline order is `UseDefaultFiles`, `UseStaticFiles`, `SessionAuthMiddleware`, `MapControllers` (`Program.cs:19-22`), so
+  static UI files need no session, and `/api/*` except `/api/auth/login` requires one
+  (`SessionAuthMiddleware.InvokeAsync`, `needsSession`).
+- 401 is written by the middleware without calling `_next` (`SessionAuthMiddleware.cs`, `StatusCodes.Status401Unauthorized`).
+- 403 is set by `RequireRoleAttribute.OnActionExecuting` (`context.Result = new StatusCodeResult(403)`).
+- `Handle` maps `KeyNotFoundException` to 404, `InvalidOperationException` to 409, `ArgumentException` to 400
+  (`ApiControllerBase.Handle`).
+- `ApprovalService.Approve`: `Find` (throws `KeyNotFoundException`), `EnsurePending` (throws
+  `InvalidOperationException`), then sets `Status`, `DecidedBy`, `DecidedAt`, calls `Update`, returns the invoice.
+- `InMemoryInvoiceRepository` guards each call with `lock (_lock)` and hands out references to the stored
+  `Invoice` objects (`GetById` returns the list element itself).
+- Registrations: `SessionStore` singleton, `IInvoiceRepository` singleton, `ApprovalService` scoped (`Program.cs:13-15`).
+
+Inferred (not verified by running or by a code line):
+- Item 3: ordering of 401 before 403 is a consequence of pipeline order, not tested by a request.
+- Item 4: concurrent approvals can both pass `EnsurePending` because the lock covers each repository call, not the
+  whole check-then-act sequence.
+- Item 7: uncaught exceptions give a 500; for a body-bearing action such as `Reject`, a malformed body is
+  rejected by the `[ApiController]` model-validation filter with 400 before `RequireRoleAttribute` runs
+  (framework behaviour, not visible in the repo).
+
+## 2a. MCP validation evidence
+
+| # | Diagram | `diagramType` | Result |
+|---|---|---|---|
+| 1 | As-built container view (section 1) | `flowchart` | Succeeded on the first call: PNG rendered, no syntax error reported. |
+| 2 | Approval sequence (section 2) | `sequence` | Succeeded on the first call: PNG rendered, no syntax error reported. |
+| 3 | Target architecture (section 6) | `flowchart` | Succeeded on the first call: PNG rendered, no syntax error reported. |
+
+- The tool reports render success; it does not check the diagrams against the code. Accuracy rests on the
+  citations in section 3, which were re-read against the source on 2026-10-24.
+- The calls ran with `useUrlShortener: false`; the tool returned long mermaid.ai preview links, which are
+  deliberately not copied here. Re-run the three calls to regenerate them.
+- Earlier drafts of this file said no Mermaid MCP existed. That was true when written and is superseded by
+  this section; the diagrams were not changed by the MCP calls (no errors were reported).
 
 ## 3. Citation list
 
@@ -110,7 +161,8 @@ gap the target state has to fill.
 | E6 | Controller to repository (bypasses the service) | `InvoicesController` field `_repository`: `GetAll`, `GetById`, `Create` (`Add`), `Delete` (`Remove`) |
 | E7 | Service to repository | `ApprovalService.Find` -> `GetById`; `Submit/Approve/Reject` -> `Update` |
 | E8 | Implementation | `InMemoryInvoiceRepository : IInvoiceRepository` |
-| S1-S7 | Sequence steps | `app.js` (`decide('/approvals/${invoice.id}/approve')`), `SessionAuthMiddleware.InvokeAsync`, `RequireRoleAttribute.OnActionExecuting`, `ApprovalsController.Approve` (lines 21-23), `ApiControllerBase.Handle` (line 9), `ApprovalService.Approve` (line 31), `ApprovalService.EnsurePending` (line 65) |
+| E9 | Controller to session store | `AuthController.Login` -> `SessionStore.Create`; `Logout` -> `SessionStore.Remove` |
+| S1-S7 | Sequence steps | `app.js` (`decide('/approvals/${invoice.id}/approve')`), `SessionAuthMiddleware.InvokeAsync`, `RequireRoleAttribute.OnActionExecuting`, `ApprovalsController.Approve` (lines 22-23), `ApiControllerBase.Handle` (line 9), `ApprovalService.Approve` (line 31), `ApprovalService.EnsurePending` (line 65) |
 
 ## 4. Inferred items (assumed, not verified in code)
 
@@ -124,6 +176,8 @@ gap the target state has to fill.
    concurrent approvals are not guaranteed to be serialized. Inferred from reading, not tested.
 5. `DiscountCalculator` is unused by the API, inferred from finding no call sites under `backend/src`.
 6. Anything beyond `localhost:5000` (TLS, reverse proxy, App Service) is not in the repository.
+7. Unhandled exceptions and `[ApiController]` model-validation ordering (see section 2) are framework
+   behaviour inferred from the absence of an exception handler in `Program.cs`, not observed.
 
 ## 5. Corrections (claims that are wrong against the code)
 

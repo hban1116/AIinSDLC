@@ -45,5 +45,13 @@ experienced engineer reviews the first incidents, and the new engineers pair wit
 
 ## Approver and review
 
-The head of engineering (or delegate) approves any level change in writing, after reading the usage log. Review
-monthly for the first quarter, then quarterly. The incident commander on call may drop the level immediately.
+**Open gap: the promotion approver is not established.** Nothing in this repository or the assignment material
+names who approves moving the workflow between levels (`ops/README.md` and `AGENTS.md` define no owner, and the
+assignment document is not in the repo, so this was not checked against it). The earlier draft named "the head
+of engineering"; that was the assistant's invention and is withdrawn. Until the author or the assignment
+supplies the role, treat this as **unassigned: promotion between levels is blocked**.
+
+Proposed, for the author to accept or replace: promotion L1 to L2 and L2 to L3 is approved in writing by one named
+engineering owner of the on-call process (role and person to be filled in: ____), after reading the usage log,
+with a second reviewer who is not the person who ran the pilot. Review monthly for the first quarter, then
+quarterly. The incident commander on call may drop the level immediately; that needs no approval.

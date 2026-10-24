@@ -15,8 +15,9 @@ or described in the repo, and the one agent workflow the assignment centres on (
 | A. Coding agent with repo instructions | `AGENTS.md`, `CLAUDE.md` (imports `AGENTS.md`) |
 | B. Playwright MCP server | `.mcp.json`: `npx @playwright/mcp@latest` (unpinned) |
 | C. Incident-analysis agent (read-only evidence, human decides) | `ops/incidents/INC-2041`, `INC-2047` READMEs; planned, not configured as a tool anywhere |
+| D. Mermaid Chart MCP server (used for deliverable 1) | Present in the Copilot CLI session on 2026-10-24, not in the repo's `.mcp.json`; its server-side config and credential handling were not inspected |
 
-No other MCP server, hooks, secrets file, or agent permissions file exists. If the team runs a setup not in the
+No other MCP server in the repo, hooks, secrets file, or agent permissions file exists. If the team runs a setup not in the
 repo, it is out of scope and must be audited separately.
 
 ## Legs per setup
@@ -25,7 +26,12 @@ repo, it is out of scope and must be audited separately.
 |---|---|---|---|
 | A. Coding agent | Local source, any files in the working tree and shell env | Issue text, PR diffs, dependency READMEs, web pages, tool output | Shell, network, `git push` if the user's credentials are present |
 | B. Playwright MCP | Browser session on the app (`sessionStorage` token), page content | Any page it browses, including user-entered invoice text | Can navigate anywhere and submit forms; runs code fetched by `npx ...@latest` |
+| D. Mermaid MCP | Only the diagram source it is sent (component names, no customer data) and an account credential held outside the repo | Diagram text it is given; its responses carry prompts/links | Sends diagram source to a third-party service and returns links; write-capable tools (create/update diagrams, push files, create PRs/issues) are exposed |
 | C. Incident agent | Production logs and invoice data (customer data, supplier names) | Log lines contain user-controlled strings (invoice names, error messages) | Only if it were allowed to run prod commands or post to chat/tickets |
+
+D has no private repo data in what it is sent if only diagram source is passed, but exposes write tools to an external
+service; keep inputs to non-sensitive diagrams, never pass credentials or customer data, and do not place the credential in
+repo files or logs.
 
 Result: A and B each have all three legs available at once in a typical developer session. C, as specified (read-only
 evidence), has legs 1 and 2 and deliberately lacks leg 3.

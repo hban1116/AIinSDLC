@@ -1,6 +1,6 @@
 # Changed-variable run 1 (prompt v2) - raw reviewer outputs
 
-Only the review prompt changed (v1 -> v2, see `../README-assignment.md`); model, case files and session setup are the same.
+Only the review prompt changed (v1 -> v2, see `docs/assignment/04-eval-report.md`); model, case files and session setup are the same.
 Fresh `explore` sub-agent session per case. Verbatim.
 
 ## case-01

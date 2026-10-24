@@ -73,3 +73,21 @@ effects are not mixed.
 
 Note: several eval diffs reference symbols that do not exist in this tree (`CurrentUser`, `DecisionResponse`,
 `_queries`), so reviewers judge self-contained diffs, not this codebase.
+
+## Audit re-check (2026-10-24)
+
+- `python3 scripts/eval_report.py` reproduces every figure in the Results table and the case-09 sensitivity
+  numbers (v1 26/27, 1/9; v2 25/27, 0/9; sensitivity 24/24, 3/12 and 1/12).
+- I re-read all six `runs/*.md` files against the verdicts. They match, but note how the CSV is produced:
+  `scripts/eval_report.py` hard-codes the four exceptions (v1 run 1 case-09, v1 run 3 case-06, v2 runs 2 and 3
+  case-09) and defaults every other row to caught/clean_ok. It does not parse the run files, so the CSV is only as
+  correct as that hand-entered list and my reading. `finding_summary` is a pointer, not a summary.
+- The Wilson intervals treat the 27 (and 9) observations as independent. They are repeats of 9 (and 3) diffs, so
+  the true uncertainty is wider than shown; read the intervals as optimistic.
+- The ground-truth hash matches the file (`sha256sum`). The creation timestamp and the claim that it preceded the
+  reviews are the submitter's statement; git cannot confirm it because the file was first committed together with
+  the run outputs.
+- Proxies/assumptions: the case diffs for 01-10 are the provided starter diffs, and several reference code absent
+  from this tree; case-11 is derived from the INC-2041 pack, whose incident data is invented (`ops/README.md`).
+  "Model: default" is not an identified model. `variant-run1.md` originally pointed to a nonexistent
+  `../README-assignment.md`; it now points to this report.
