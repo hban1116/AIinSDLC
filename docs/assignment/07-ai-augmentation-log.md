@@ -14,7 +14,7 @@ own them (especially the decision record and autonomy policy, which the assignme
 | 3. Autonomy policy | Drafted from the incident packs | Author owns thresholds and approver choice |
 | 4. Evals | Wrote 2 cases (11 real, from INC-2041; 12 clean, from a real commit), pre-registered the key (sha256 in the report), ran 72 reviewer sessions (36 baseline v1, 36 v2) as fresh `explore` sub-agents, scored them, computed Wilson intervals with `scripts/eval_report.py` | Same model family reviews and scores; not blind; model ID not exposed; ceiling effect; low confidence (see report) |
 | 5. Risk audit | Audited `.mcp.json`, `AGENTS.md`, incident workflow; did not modify `.mcp.json` | Version pin left for the author |
-| 5. Metrics | `scripts/ci_metrics.py` on `ops/pipeline/run-timings.csv` | Data is for the invented planned pipeline; proxies only |
+| 6. Metrics | `scripts/ci_metrics.py` on `ops/pipeline/run-timings.csv` | Data is for the invented planned pipeline; proxies only |
 | Hand-in | Drafted demo script and checklist | **Video not recorded or uploaded** (AI cannot do this) |
 
 Failures and corrections during the work (kept on purpose):
