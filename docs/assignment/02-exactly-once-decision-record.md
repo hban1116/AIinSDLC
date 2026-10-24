@@ -1,6 +1,5 @@
 # Deliverable 2 - Decision record: exactly-once PayEx submission after approval
 
-Status: proposed. Decision date: ____. Decision owner: ____.
 
 ## Context
 
