@@ -1,0 +1,48 @@
+diff --git a/.gitignore b/.gitignore
+index 0907c9f..a2f7e82 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -6,3 +6,5 @@ obj/
+ .idea/
+ node_modules/
+ .env
++test-results/
++playwright-report/
+diff --git a/AGENTS.md b/AGENTS.md
+index f7b5726..ff9250a 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -7,6 +7,7 @@ Invoice approval demo app: ASP.NET Core 8 Web API with a small static web UI.
+ - `backend/src/InvoiceApp.Domain`: business rules, no web or storage code. `ApprovalService` owns the invoice lifecycle (Draft, PendingApproval, Approved, Rejected).
+ - `backend/src/InvoiceApp.Api`: controllers, sign-in (`Auth/`), in-memory repository, and the web UI under `wwwroot/`.
+ - `backend/tests/InvoiceApp.Tests`: xUnit tests, one test class per class under test, named `<ClassUnderTest>Tests`.
++- `e2e`: Playwright end-to-end tests (`tests/`) and page objects (`pages/`).
+ - `docs/use-cases`: short briefs for features we may build.
+ 
+ ## Conventions
+@@ -18,11 +19,13 @@ Invoice approval demo app: ASP.NET Core 8 Web API with a small static web UI.
+ - Register services in `Program.cs`. Repositories are interfaces in Domain with an in-memory implementation in Api.
+ - Every new rule or endpoint needs tests. Use `FakeInvoiceRepository` in tests.
+ - Use clear names; no one-letter variables or `flag` parameters.
++- End-to-end tests use page objects and role-based locators (`getByRole`, `getByLabel`), never CSS or XPath selectors.
+ 
+ ## Commands
+ 
+ - Run the app: `dotnet run --project backend/src/InvoiceApp.Api` then open http://localhost:5000
+ - Run the tests: `dotnet test backend/InvoiceApp.sln`
++- Run end-to-end tests: `cd e2e && npm install && npx playwright install chromium && npm test`
+ 
+ ## Demo accounts (not real credentials)
+ 
+diff --git a/backend/tests/InvoiceApp.Tests/InvoiceApp.Tests.csproj b/backend/tests/InvoiceApp.Tests/InvoiceApp.Tests.csproj
+index 408486e..93cb862 100644
+--- a/backend/tests/InvoiceApp.Tests/InvoiceApp.Tests.csproj
++++ b/backend/tests/InvoiceApp.Tests/InvoiceApp.Tests.csproj
+@@ -9,6 +9,7 @@
+     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+     <PackageReference Include="xunit" Version="2.9.2" />
+     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
++    <PackageReference Include="coverlet.collector" Version="6.0.2" />
+   </ItemGroup>
+   <ItemGroup>
+     <ProjectReference Include="..\..\src\InvoiceApp.Domain\InvoiceApp.Domain.csproj" />
