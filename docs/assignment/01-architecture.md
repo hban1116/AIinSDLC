@@ -50,31 +50,40 @@ notification worker, health endpoint, Dockerfile, audit log, HTTPS configuration
 
 ```mermaid
 sequenceDiagram
-    autonumber
     actor Approver
-    participant UI as app.js (S1)
-    participant MW as SessionAuthMiddleware (S2)
-    participant Filter as RequireRoleAttribute (S3)
-    participant Ctl as ApprovalsController.Approve (S4)
-    participant Base as ApiControllerBase.Handle (S5)
-    participant Svc as ApprovalService.Approve (S6)
-    participant Repo as InMemoryInvoiceRepository (S7)
+    participant UI as Browser UI
+    participant MW as SessionAuthMiddleware
+    participant Filter as RequireRoleAttribute
+    participant Ctl as ApprovalsController
+    participant Svc as ApprovalService
+    participant Repo as InMemoryInvoiceRepository
 
-    Approver->>UI: click Approve
-    UI->>MW: POST /api/approvals/{invoiceId}/approve + Bearer token
-    MW->>MW: SessionStore.Get(token); none gives 401
-    MW->>Filter: HttpContext.Items["session"] = UserSession
-    Filter->>Filter: role in Approver, Admin else 403
-    Filter->>Ctl: OnActionExecuting passes
-    Ctl->>Base: Handle(() => Approve(invoiceId, session.Username))
-    Base->>Svc: Approve(invoiceId, approver)
-    Svc->>Repo: GetById(invoiceId)
-    Repo-->>Svc: Invoice or null
-    Svc->>Svc: not found: KeyNotFoundException; not PendingApproval: InvalidOperationException
-    Svc->>Svc: Status=Approved, DecidedBy, DecidedAt=UtcNow
-    Svc->>Repo: Update(invoice)
-    Svc-->>Base: Invoice
-    Base-->>UI: 200 Invoice (404 / 409 / 400 on the exceptions above)
+    Approver->>UI: Click Approve
+    UI->>MW: Submit approval request
+    MW->>MW: Validate session token
+    alt Invalid session
+        MW-->>UI: 401 Unauthorized
+    else Valid session
+        MW->>Filter: Continue request
+        Filter->>Filter: Check Approver or Admin role
+        alt Role denied
+            Filter-->>UI: 403 Forbidden
+        else Role allowed
+            Filter->>Ctl: Invoke approve action
+            Ctl->>Svc: Approve invoice
+            Svc->>Repo: Get invoice
+            Repo-->>Svc: Invoice or null
+            alt Invoice not found
+                Svc-->>Ctl: Not found
+                Ctl-->>UI: 404 Not Found
+            else Invoice found
+                Svc->>Svc: Validate invoice status
+                Svc->>Repo: Update approved invoice
+                Repo-->>Svc: Update complete
+                Svc-->>UI: Approval response
+            end
+        end
+    end
 ```
 
 Nothing happens after `Update`: no audit write, no notification, no payment submission. That is the central
